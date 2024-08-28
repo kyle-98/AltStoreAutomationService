@@ -9,6 +9,7 @@ using System.Diagnostics;
 
 namespace AltStoreAutomation
 {
+     //handle storing the port and authentication keys from the config.json file
      public class SettingsObj
      {
           [JsonProperty("PORT")]
@@ -18,6 +19,7 @@ namespace AltStoreAutomation
           public string AuthToken { get; set; }
      }
 
+     //main class for the webservice that runs to handle GET requests from ios shortcut
      public class WebService : ServiceBase
      {
           private HttpListener _listener;
@@ -27,37 +29,42 @@ namespace AltStoreAutomation
 
           public WebService()
           {
-
                this.ServiceName = "AltStoreAutomation";
+
+               //setup logging to event log, using Applications bc lazy
                _eventLog = new EventLog();
                if (!EventLog.SourceExists("AltStoreAutomation")) EventLog.CreateEventSource("AltStoreAutomation", "Application");
                _eventLog.Source = "AltStoreAutomation";
                _eventLog.Log = "Application";
           }
 
-
+          //read from config.json file
           private void ReadConfig()
           { 
+               //store entire install in C:\ to prevent having to look through registry as this runs as SYSTEM
                string jsonData = File.ReadAllText($"C:\\AltStoreAutomation\\config.json");
                _appSettings = JsonConvert.DeserializeObject<SettingsObj>(jsonData);
           }
 
+          //log an error to the event viewer under Windows -> Application
           private void LogError(string errorMsg)
           {
                _eventLog.WriteEntry(errorMsg, EventLogEntryType.Error);
           }
 
-
+          //all actions to trigger on the start of the service
           protected override void OnStart(string[] args)
           {
                try
                {
                     ReadConfig();
 
+                    //setup the listener to listen on the specified port in the config.json
                     _listener = new HttpListener();
                     _listener.Prefixes.Add($"http://+:{_appSettings.Port}/");
                     _listener.Start();
 
+                    //place the listener on its own thread
                     _listenerThread = new Thread(new ThreadStart(HandleRequests));
                     _listenerThread.Start();
                     _eventLog.WriteEntry("Sucessfully started the http listener", EventLogEntryType.Information);
@@ -69,6 +76,7 @@ namespace AltStoreAutomation
                }
           }
 
+          //all actions to trigger on the service stop event
           protected override void OnStop()
           {
                try
@@ -79,12 +87,14 @@ namespace AltStoreAutomation
                catch(Exception ex) { LogError($"Error on service stop: {ex.Message}"); }
           }
 
+          //check if the authentication token sent as a header is valid against the one in the config.json
           private bool IsValidToken(HttpListenerRequest request)
           {
                var authenticationHeader = request.Headers["Authorization"];
                return !string.IsNullOrEmpty(authenticationHeader) && authenticationHeader == $"Important {_appSettings.AuthToken}";
           }
 
+          //restart the Apple Mobile Device Service
           private void RestartAppleMobileDeviceService()
           {
                try
@@ -104,6 +114,7 @@ namespace AltStoreAutomation
                catch(Exception ex) { LogError($"Failed to restart service: {ex.Message}"); }
           }
 
+          //handle GET requests from ios shortcut
           private void HandleRequests()
           {
                while(_listener.IsListening)
@@ -142,6 +153,8 @@ namespace AltStoreAutomation
                               continue;
                          }
 
+                         //if authentication token and request method are both correct, restart the service
+                         // send a positive response back to the ios shortcut client to be able to send notification of successful service restart
                          RestartAppleMobileDeviceService();
                          string responseString = "<html><body>success</body></html>";
                          byte[] responseBuffer = Encoding.UTF8.GetBytes("Forbidden");

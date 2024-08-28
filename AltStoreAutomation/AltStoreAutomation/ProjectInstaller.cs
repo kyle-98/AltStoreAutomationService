@@ -3,6 +3,7 @@ using System.ComponentModel;
 using System.ServiceProcess;
 using System.Configuration.Install;
 
+//used to install the service with InstallUtil.exe
 namespace AltStoreAutomation
 {
      [RunInstaller(true)]
