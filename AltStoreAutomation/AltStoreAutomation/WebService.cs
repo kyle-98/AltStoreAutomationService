@@ -131,7 +131,7 @@ namespace AltStoreAutomation
                          //make sure authentication token exists and is correct
                          if (!IsValidToken(request))
                          {
-                              response.StatusCode = (int)HttpStatusCode.NotFound;
+                              response.StatusCode = (int)HttpStatusCode.Forbidden;
                               byte[] buffer = Encoding.UTF8.GetBytes("Forbidden");
                               response.ContentLength64 = buffer.Length;
                               response.OutputStream.Write(buffer, 0, buffer.Length);
@@ -143,8 +143,8 @@ namespace AltStoreAutomation
                          }
 
                          RestartAppleMobileDeviceService();
-                         string responseString = "<html><body>success</body></html>";
-                         byte[] responseBuffer = Encoding.UTF8.GetBytes("Forbidden");
+                         response.StatusCode = (int)HttpStatusCode.OK;
+                         byte[] responseBuffer = Encoding.UTF8.GetBytes("Success");
                          response.ContentLength64 = responseBuffer.Length;
                          response.OutputStream.Write(responseBuffer, 0, responseBuffer.Length);
                          response.OutputStream.Close();
